@@ -10,7 +10,7 @@ The challenge was to predict the correctness of barbell lifts based on data from
 
 In my analysis I've followed the usual steps:
 
-- Separate date into subsets
+- Separate data into subsets
 - Cleaning data
 - Model training
 - Model selection
