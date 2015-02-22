@@ -1,0 +1,78 @@
+---
+author: "Judit Lantos"
+
+date: "02/21/2015"
+
+title: "Analysis of the Weight Lifting Exercise Data set"
+---
+
+The challenge was to predict the correctness of barbell lifts based on data from accelerometers on the belt, forearm, arm, and dumbbell of 6 participants. The data was provided by <http://groupware.les.inf.puc-rio.br/har>.
+
+In my analysis I've followed the usual steps:
+
+- Separate date into subsets
+- Cleaning data
+- Model training
+- Model selection
+- Out of sample error calculation
+
+I've divided the data set into 3 parts: 60% training data, 20% validation data(to select the final model) and 20% testing data to calculate the out of sample error.
+```
+data = read.csv("pml-training.csv")
+set.seed(33833)
+
+inTrain <- createDataPartition(y=data$classe, p=0.6, list=FALSE);
+training <- data[inTrain,];
+not_training <- data[-inTrain,];
+
+inValid <- createDataPartition(y=not_training$classe, p=0.5, list=FALSE);
+validation <- not_training[inValid,];
+testing <- not_training[-inValid,];
+```
+
+To clean the data I've converted blank cells to NA, removed the columns which contained any NA values and except the 'classe' converted all columns to numeric.
+The first 7 variables were also excluded since they didn't contain any quantitative sensor info.
+
+```
+training[training==""] <- NA
+complete_columns=as.vector(colSums(is.na(training)) < 1);
+
+plot(training$X, training$classe)
+complete_columns[1:7] <- FALSE;
+
+training=training[,complete_columns]
+training[, -53] <- sapply(training[, -53], as.numeric)
+```
+
+I've tried 2 different models:
+```
+fit1 <- train(classe ~ ., data=training,  method="rpart");
+fit2 <- randomForest(y=training$classe, x=training[,-53], ntree=100, do.trace=T);
+```
+
+Since the 2. performed really well on the validation data set, I choose that as the final model.
+```
+validation_pr = validation[,complete_columns]
+validation_pr[, -53] <- sapply(validation_pr[, -53], as.numeric)
+
+res1 <- confusionMatrix(validation_pr$classe, predict(fit1,validation_pr))
+res2 <- confusionMatrix(validation_pr$classe, predict(fit2,validation_pr))
+```
+Result on the validation set:
+
+      Accuracy          Kappa  AccuracyLower  AccuracyUpper   AccuracyNull 
+     0.9954117      0.9941958      0.9927581      0.9972785      0.2852409 
+
+The out of sample error was measured using the so far untouched testing data set.
+```
+testing_pr = testing[,complete_columns]
+testing_pr[, -53] <- sapply(testing_pr[, -53], as.numeric)
+
+final_result <- confusionMatrix(testing_pr$classe, predict(fit2,validation_pr))
+final_result$overall
+```
+The final result:
+
+      Accuracy          Kappa  AccuracyLower  AccuracyUpper   AccuracyNull 
+     0.9956666      0.9945182      0.9930708      0.9974737      0.2852409 
+The accuracy is 99.56% which means that the out of sample error is < 0.5%. The random forest algorithm with a higher number of trees could have produced an even higher accuracy on the training/validation test but I didn't want to overfit the model so I limited this option.
